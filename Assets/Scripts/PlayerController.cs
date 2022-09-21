@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 
 /// <summary>
 /// 
@@ -14,18 +15,19 @@ public class PlayerController : MonoBehaviour
     public float jumpForce;
     [HideInInspector]
     public int score;
+    public Text carrotNum;
+    
 
     //--------------成员变量 private--------------
+    bool action = false;
     Rigidbody2D rigidBody;
     Animator anim;
-    Collider2D collision;
+    BoxCollider2D collision;
+    int jumpCount;
+    bool isHurt;
 
     ////--------------Unity主控函数--------------
 
-    /// <summary>
-    /// Start is called on the frame when a script is enabled just before
-    /// any of the Update methods is called the first time.
-    /// </summary>
     private void Start()
     {
         rigidBody = targetObj.GetComponent<Rigidbody2D>();
@@ -34,15 +36,26 @@ public class PlayerController : MonoBehaviour
         speed = 400;
         jumpForce = 300;
         score = 0;
+        jumpCount = 0;
+        isHurt = false;
     }
 
-    /// <summary>
-    /// Update is called every frame, if the MonoBehaviour is enabled.
-    /// </summary>
+    
+    private void Update()
+    {
+        if(Input.GetButtonDown("Jump"))
+        {
+             action = true;
+        }
+    }
     private void FixedUpdate()
     {
-        Move();
-        SwtichAnimJumpToFall();
+        if(!isHurt)
+        {
+            Move();   
+        }
+        SwtichAnim();
+        
     }
 
     //--------------自定义成员函数--------------
@@ -62,18 +75,51 @@ public class PlayerController : MonoBehaviour
         }
 
         //跳跃
-        if(Input.GetButton("Jump"))
+        if(action && !anim.GetBool("IsDuck"))
         {
-            //重构Player.y速度
-            rigidBody.velocity = new Vector2(rigidBody.velocity.x, jumpForce * Time.deltaTime);
-            //动画切换 - 跳跃
-            anim.SetBool("IsJump", true);
+            switch(jumpCount > 1 ? false : true)
+            {
+                //跳起次数∈[1,2]
+                case true :
+                {
+                    //重构Player.y速度
+                    rigidBody.velocity = new Vector2(rigidBody.velocity.x, jumpForce * Time.deltaTime);
+                    //动画切换 - 跳跃
+                    anim.SetBool("IsJump", true);
+                    jumpCount++;    
+                }
+                    break;
+                //跳起次数超过2
+                case false :
+                    jumpCount++;                 
+                    break;
+                default :
+                    break;
+            }
+            action = false;
+        }
+
+        //下蹲
+        if(Input.GetKey(KeyCode.S))
+        {
+            anim.SetBool("IsDuck", true);
+            collision.size = new Vector2(collision.size.x, 0.35f);
+            collision.offset = new Vector2(collision.offset.x, -0.4f);
+            targetObj.transform.localScale = new Vector3(0.8f, 0.8f, 1f);
+        }
+        else
+        {
+            anim.SetBool("IsDuck", false);
+            collision.size = new Vector2(collision.size.x, 0.85f);
+            collision.offset = new Vector2(collision.offset.x, -0.16f);
+            targetObj.transform.localScale = new Vector3(1f, 1f, 1f);
         }
     }
 
-    void SwtichAnimJumpToFall()
+    void SwtichAnim()
     {
         anim.SetBool("IsIdle", false);
+        
         if(anim.GetBool("IsJump"))
         {
             if(rigidBody.velocity.y < 0)
@@ -82,24 +128,61 @@ public class PlayerController : MonoBehaviour
                 anim.SetBool("IsFall", true);
             }
         }
+        else if(isHurt)
+        {
+            anim.SetBool("IsHurt", true); 
+            anim.SetFloat("RunSpeed", 0f);
+            if (Mathf.Abs(rigidBody.velocity.x) < 0.1f)
+            {
+                isHurt = false;
+                anim.SetBool("IsHurt", false); 
+                anim.SetBool("IsIdle", true);
+            }
+        }
         else if(collision.IsTouchingLayers(plane))
         {
             anim.SetBool("IsFall", false);
             anim.SetBool("IsIdle", true);
+            jumpCount = 0;
         }
     }
     
-    /// <summary>
-    /// Sent when another object enters a trigger collider attached to this
-    /// object (2D physics only).
-    /// </summary>
-    /// <param name="other">The other Collider2D involved in this collision.</param>
+    //收集物品
     private void OnTriggerEnter2D(Collider2D other)
     {
         if(other.CompareTag("Collection"))
         {
             Destroy(other.gameObject);
             score++;
+            carrotNum.text = score.ToString();
         }
     }
+
+    //消灭敌人
+    private void OnCollisionEnter2D(Collision2D other)
+    {
+        if(other.gameObject.CompareTag("Enemy"))
+        {
+            if(anim.GetBool("IsFall"))
+            {
+                Destroy(other.gameObject);
+                //下落打击反馈 - 小跳跃
+                rigidBody.velocity = new Vector2(rigidBody.velocity.x, jumpForce * Time.deltaTime);
+                anim.SetBool("IsJump", true);
+            }
+            else
+            {
+                //平地打击反馈 - 左右弹飞
+                isHurt = true;
+                //判断player与collision的左右位置关系: 1-player在右; -1-player在左;
+                int offsetX = transform.position.x - other.gameObject.transform.position.x > 0 ? 1 : -1;
+                //判断player与collision的上下位置关系: 1-player在上; -1-player在下;
+                int offsetY = transform.position.y - other.gameObject.transform.position.y > 0 ? 1 : -1;
+                rigidBody.velocity = new Vector2(offsetX * 10, offsetY * 10);
+                
+            }
+        }
+        
+    }
+
 }
