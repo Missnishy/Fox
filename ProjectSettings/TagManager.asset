@@ -6,6 +6,10 @@ TagManager:
   tags:
   - Collection
   - Enemy
+  - LeftEdge
+  - RightEdge
+  - UpEdge
+  - DownEdge
   layers:
   - Default
   - TransparentFX

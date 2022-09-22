@@ -1,3 +1,7 @@
+/* 
+ *  Author : Missnish
+ */
+ 
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -9,14 +13,16 @@ using UnityEngine.UI;
 public class PlayerController : MonoBehaviour
 {
     //--------------成员变量 public--------------
-    public GameObject targetObj;
     public LayerMask plane;
     public float speed;
     public float jumpForce;
     [HideInInspector]
     public int score;
     public Text carrotNum;
-    
+    public AudioSource jumpMusic;
+    public AudioSource HurtMusic;
+    public AudioSource CarrotGetMusic;
+
 
     //--------------成员变量 private--------------
     bool action = false;
@@ -25,18 +31,20 @@ public class PlayerController : MonoBehaviour
     BoxCollider2D collision;
     int jumpCount;
     bool isHurt;
+    float moveDirection;
 
     ////--------------Unity主控函数--------------
 
     private void Start()
     {
-        rigidBody = targetObj.GetComponent<Rigidbody2D>();
-        anim = targetObj.GetComponent<Animator>();
-        collision = targetObj.GetComponent<BoxCollider2D>();
+        rigidBody = GetComponent<Rigidbody2D>();
+        anim = GetComponent<Animator>();
+        collision = GetComponent<BoxCollider2D>();
         speed = 400;
         jumpForce = 300;
         score = 0;
         jumpCount = 0;
+        moveDirection = 0;
         isHurt = false;
     }
 
@@ -63,7 +71,7 @@ public class PlayerController : MonoBehaviour
     {
         //移动
         //得到横向移动数据: -1-向左; 0-不动; 1-向右;
-        float moveDirection = Input.GetAxis("Horizontal");
+        moveDirection = Input.GetAxis("Horizontal");
         if (moveDirection != 0)
         {
             //重构Player.x速度 - 速度依附于组件RigidBody(刚体)
@@ -82,6 +90,7 @@ public class PlayerController : MonoBehaviour
                 //跳起次数∈[1,2]
                 case true :
                 {
+                    jumpMusic.Play();
                     //重构Player.y速度
                     rigidBody.velocity = new Vector2(rigidBody.velocity.x, jumpForce * Time.deltaTime);
                     //动画切换 - 跳跃
@@ -105,20 +114,23 @@ public class PlayerController : MonoBehaviour
             anim.SetBool("IsDuck", true);
             collision.size = new Vector2(collision.size.x, 0.35f);
             collision.offset = new Vector2(collision.offset.x, -0.4f);
-            targetObj.transform.localScale = new Vector3(0.8f, 0.8f, 1f);
         }
         else
         {
             anim.SetBool("IsDuck", false);
             collision.size = new Vector2(collision.size.x, 0.85f);
             collision.offset = new Vector2(collision.offset.x, -0.16f);
-            targetObj.transform.localScale = new Vector3(1f, 1f, 1f);
         }
     }
 
     void SwtichAnim()
     {
         anim.SetBool("IsIdle", false);
+
+        if(rigidBody.velocity.y < 0.1f && !collision.IsTouchingLayers(plane))
+        {
+            anim.SetBool("IsFall", true);
+        }
         
         if(anim.GetBool("IsJump"))
         {
@@ -152,6 +164,7 @@ public class PlayerController : MonoBehaviour
     {
         if(other.CompareTag("Collection"))
         {
+            CarrotGetMusic.Play();
             Destroy(other.gameObject);
             score++;
             carrotNum.text = score.ToString();
@@ -163,9 +176,10 @@ public class PlayerController : MonoBehaviour
     {
         if(other.gameObject.CompareTag("Enemy"))
         {
+            Enemy enemy = other.gameObject.GetComponent<Enemy>();
             if(anim.GetBool("IsFall"))
             {
-                Destroy(other.gameObject);
+                enemy.JumpOn();
                 //下落打击反馈 - 小跳跃
                 rigidBody.velocity = new Vector2(rigidBody.velocity.x, jumpForce * Time.deltaTime);
                 anim.SetBool("IsJump", true);
@@ -174,6 +188,7 @@ public class PlayerController : MonoBehaviour
             {
                 //平地打击反馈 - 左右弹飞
                 isHurt = true;
+                HurtMusic.Play();
                 //判断player与collision的左右位置关系: 1-player在右; -1-player在左;
                 int offsetX = transform.position.x - other.gameObject.transform.position.x > 0 ? 1 : -1;
                 //判断player与collision的上下位置关系: 1-player在上; -1-player在下;
