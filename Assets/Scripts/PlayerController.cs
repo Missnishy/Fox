@@ -13,6 +13,7 @@ using UnityEngine.UI;
 public class PlayerController : MonoBehaviour
 {
     //--------------成员变量 public--------------
+    public Transform CeillingPoint;
     public LayerMask plane;
     public float speed;
     public float jumpForce;
@@ -75,7 +76,7 @@ public class PlayerController : MonoBehaviour
         if (moveDirection != 0)
         {
             //重构Player.x速度 - 速度依附于组件RigidBody(刚体)
-            rigidBody.velocity = new Vector2(moveDirection * speed * Time.deltaTime, rigidBody.velocity.y);
+            rigidBody.velocity = new Vector2(moveDirection * speed * Time.fixedDeltaTime, rigidBody.velocity.y);
             //重构Player朝向 - Scale.x: -1-左; 1-右;
             transform.localScale = new Vector3((moveDirection > 0 ? 1 : -1), 1, 1);
             //动画切换 - 待机 & 跑动
@@ -92,7 +93,7 @@ public class PlayerController : MonoBehaviour
                 {
                     jumpMusic.Play();
                     //重构Player.y速度
-                    rigidBody.velocity = new Vector2(rigidBody.velocity.x, jumpForce * Time.deltaTime);
+                    rigidBody.velocity = new Vector2(rigidBody.velocity.x, jumpForce * Time.fixedDeltaTime);
                     //动画切换 - 跳跃
                     anim.SetBool("IsJump", true);
                     jumpCount++;    
@@ -109,18 +110,7 @@ public class PlayerController : MonoBehaviour
         }
 
         //下蹲
-        if(Input.GetKey(KeyCode.S))
-        {
-            anim.SetBool("IsDuck", true);
-            collision.size = new Vector2(collision.size.x, 0.35f);
-            collision.offset = new Vector2(collision.offset.x, -0.4f);
-        }
-        else
-        {
-            anim.SetBool("IsDuck", false);
-            collision.size = new Vector2(collision.size.x, 0.85f);
-            collision.offset = new Vector2(collision.offset.x, -0.16f);
-        }
+        Crouch();
     }
 
     void SwtichAnim()
@@ -198,6 +188,26 @@ public class PlayerController : MonoBehaviour
             }
         }
         
+    }
+
+    private void Crouch()
+    {
+        float radius = CeillingPoint.position.y - transform.position.y;
+        if(!Physics2D.OverlapCircle(CeillingPoint.position, radius, plane))
+        {
+            if(Input.GetButton("Crouch"))
+        {
+            anim.SetBool("IsDuck", true);
+            collision.size = new Vector2(collision.size.x, 0.32f);
+            collision.offset = new Vector2(collision.offset.x, -0.4f);
+        }
+        else
+        {
+            anim.SetBool("IsDuck", false);
+            collision.size = new Vector2(collision.size.x, 0.85f);
+            collision.offset = new Vector2(collision.offset.x, -0.16f);
+        }
+        }
     }
 
 }
